@@ -60,7 +60,10 @@ jobs:
             mv "$APP/ios" "$APP/MyTaskUp"
           fi
           
-          # Mettre à jour le Info.plist pour pointer vers le nouveau binaire
+          # Donner les droits d'exécution indispensables au binaire iOS
+          chmod +x "$APP/MyTaskUp"
+          
+          # Mettre à jour le Info.plist pour pointer vers le bon binaire
           if [ -f "$APP/Info.plist" ]; then
             plutil -replace CFBundleExecutable -string "MyTaskUp" "$APP/Info.plist"
           fi
