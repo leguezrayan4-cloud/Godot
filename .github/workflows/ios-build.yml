@@ -66,6 +66,10 @@ jobs:
             mv "$INTERNAL_BIN" "$BIN_DIR/MyTaskUp"
           fi
           
+          # Nettoyer les signatures précédentes et les attributs étendus pour éviter l'erreur -11 de Sideloadly
+          codesign --remove-signature "$APP/MyTaskUp" || true
+          xattr -cr "$APP"
+          
           # Appliquer les droits d'exécution sur le binaire final
           chmod +x "$APP/MyTaskUp"
           
