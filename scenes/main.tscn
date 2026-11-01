@@ -1,0 +1,186 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Theme" path="res://theme/taskup_theme.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/tasks_view.tscn" id="3_tasks"]
+[ext_resource type="PackedScene" path="res://scenes/assistant_view.tscn" id="4_asst"]
+[ext_resource type="PackedScene" path="res://scenes/settings_view.tscn" id="5_set"]
+[ext_resource type="PackedScene" path="res://scenes/task_edit_dialog.tscn" id="6_edit"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_main")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.039, 0.043, 0.063, 1)
+
+[node name="Content" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -84.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TasksView" parent="Content" instance=ExtResource("3_tasks")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AssistantView" parent="Content" instance=ExtResource("4_asst")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SettingsView" parent="Content" instance=ExtResource("5_set")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="NavBar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -84.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_type_variation = &"NavBar"
+
+[node name="NavRow" type="HBoxContainer" parent="NavBar"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="NavTasks" type="Button" parent="NavBar/NavRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"NavActive"
+theme_override_constants/icon_max_width = 22
+text = "Tâches"
+
+[node name="NavAssistant" type="Button" parent="NavBar/NavRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"NavButton"
+theme_override_constants/icon_max_width = 22
+text = "Assistant"
+
+[node name="NavSettings" type="Button" parent="NavBar/NavRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"NavButton"
+theme_override_constants/icon_max_width = 22
+text = "Réglages"
+
+[node name="ReminderOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="ReminderOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="ReminderOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AlertCard" type="PanelContainer" parent="ReminderOverlay/Center"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_type_variation = &"Dialog"
+
+[node name="Box" type="VBoxContainer" parent="ReminderOverlay/Center/AlertCard"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="AlertTitle" type="Label" parent="ReminderOverlay/Center/AlertCard/Box"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.73, 0.68, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "Rappel"
+horizontal_alignment = 1
+
+[node name="AlertTask" type="Label" parent="ReminderOverlay/Center/AlertCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="AlertTime" type="Label" parent="ReminderOverlay/Center/AlertCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.65, 1)
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+
+[node name="Actions" type="HBoxContainer" parent="ReminderOverlay/Center/AlertCard/Box"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="AlertSnooze" type="Button" parent="ReminderOverlay/Center/AlertCard/Box/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "Plus tard"
+
+[node name="AlertDone" type="Button" parent="ReminderOverlay/Center/AlertCard/Box/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Terminer"
+
+[node name="EditDialog" parent="." instance=ExtResource("6_edit")]
+unique_name_in_owner = true
