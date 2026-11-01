@@ -26,6 +26,7 @@ jobs:
 
       - name: Export Xcode project
         run: |
+          mkdir -p build/ios
           ./Godot.app/Contents/MacOS/Godot --headless --path . \
             --export-release "iOS" build/ios
           find build/ios -name "*.xcodeproj" -maxdepth 2
