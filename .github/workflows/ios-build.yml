@@ -33,20 +33,28 @@ jobs:
       - name: Export Xcode project
         run: |
           set -euo pipefail
-          rm -rf build/ios
-          mkdir -p build/ios
-          ./Godot.app/Contents/MacOS/Godot --headless --path . \
-            --export-release "MyTaskUp" build/ios
+          rm -rf build
+          mkdir -p build
 
-          PROJ=$(find build/ios -name "*.xcodeproj" -maxdepth 2 | head -n 1)
-          test -n "$PROJ" || { echo "ERREUR : .xcodeproj non généré par Godot"; exit 1; }
+          # Pas de chemin en argument : Godot utilise export_path du preset
+          # (build/ios/MyTaskUp.xcodeproj)
+          ./Godot.app/Contents/MacOS/Godot --headless --path . \
+            --export-release "MyTaskUp" || true
+
+          echo "--- Contenu de build/ après export ---"
+          find build -maxdepth 3 | head -n 50 || true
+
+          PROJ=$(find . -name "*.xcodeproj" -not -path "./Godot.app/*" -not -path "./.git/*" | head -n 1)
+          test -n "$PROJ" || { echo "ERREUR : .xcodeproj introuvable dans le dépôt"; exit 1; }
           echo "Projet Xcode : $PROJ"
+          echo "PROJ_PATH=$PROJ" >> "$GITHUB_ENV"
 
       - name: Build unsigned .app
         run: |
           set -euo pipefail
-          PROJ=$(find build/ios -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          PROJ="$PROJ_PATH"
           SCHEME=$(basename "$PROJ" .xcodeproj)
+          echo "Scheme : $SCHEME"
 
           xcodebuild -project "$PROJ" -scheme "$SCHEME" \
             -configuration Release \
