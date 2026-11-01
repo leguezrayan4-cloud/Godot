@@ -33,7 +33,8 @@ jobs:
 
       - name: Build unsigned .app
         run: |
-          PROJ=$(find build/ios -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          PROJ=$(find . -name "*.xcodeproj" | head -n 1)
+          echo "Projet trouvé : $PROJ"
           SCHEME=$(basename "$PROJ" .xcodeproj)
           xcodebuild -project "$PROJ" -scheme "$SCHEME" \
             -configuration Release -sdk iphoneos \
