@@ -1,18 +1,56 @@
-name: Build Godot iOS
+name: Build Godot iOS (unsigned)
 
 on:
   push:
     branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Export iOS Project
-        uses: firebelley/godot-export@v5.2.0
+      - name: Download Godot 4.3 and export templates
+        run: |
+          BASE=https://github.com/godotengine/godot/releases/download/4.3-stable
+          curl -L -o godot.zip "$BASE/Godot_v4.3-stable_macos.universal.zip"
+          curl -L -o templates.tpz "$BASE/Godot_v4.3-stable_export_templates.tpz"
+          unzip -q godot.zip
+          TPL_DIR="$HOME/Library/Application Support/Godot/export_templates/4.3.stable"
+          mkdir -p "$TPL_DIR"
+          unzip -q templates.tpz -d tpl_tmp
+          mv tpl_tmp/templates/* "$TPL_DIR/"
+
+      - name: Export Xcode project
+        run: |
+          ./Godot.app/Contents/MacOS/Godot --headless --path . \
+            --export-release "iOS" build/ios
+          find build/ios -name "*.xcodeproj" -maxdepth 2
+
+      - name: Build unsigned .app
+        run: |
+          PROJ=$(find build/ios -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          SCHEME=$(basename "$PROJ" .xcodeproj)
+          xcodebuild -project "$PROJ" -scheme "$SCHEME" \
+            -configuration Release -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            SYMROOT="$PWD/build/products" \
+            build
+
+      - name: Package IPA
+        run: |
+          APP=$(find build/products -name "*.app" -path "*iphoneos*" | head -n 1)
+          echo "App: $APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qr MyTaskUp.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
         with:
-          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_macos.universal.zip
-          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
+          name: MyTaskUp-unsigned
+          path: MyTaskUp.ipa
