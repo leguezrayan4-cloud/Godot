@@ -51,7 +51,6 @@ jobs:
           APP_DIR=$(dirname "$APP")
           APP_NAME=$(basename "$APP")
           
-          # Renommer le dossier .app en MyTaskUp.app si ce n'est pas déjà le cas
           if [ "$APP_NAME" != "MyTaskUp.app" ]; then
             mv "$APP_DIR/$APP_NAME" "$APP_DIR/MyTaskUp.app"
             APP="$APP_DIR/MyTaskUp.app"
@@ -59,21 +58,18 @@ jobs:
             APP="$APP_DIR/$APP_NAME"
           fi
           
-          # Trouver et renommer l'exécutable interne peu importe son nom d'origine
           INTERNAL_BIN=$(find "$APP" -maxdepth 1 -type f ! -name "*.plist" ! -name "*.car" | head -n 1)
           if [ -n "$INTERNAL_BIN" ]; then
             BIN_DIR=$(dirname "$INTERNAL_BIN")
             mv "$INTERNAL_BIN" "$BIN_DIR/MyTaskUp"
           fi
           
-          # Nettoyer les signatures précédentes et les attributs étendus pour éviter l'erreur -11 de Sideloadly
-          codesign --remove-signature "$APP/MyTaskUp" || true
+          # Nettoyage des attributs et signature ad-hoc propre sur macOS pour éviter l'erreur de Sideloadly
           xattr -cr "$APP"
+          codesign --force --sign - --entitlements "$APP/Entitlements.plist" "$APP/MyTaskUp" || codesign --force --sign - "$APP/MyTaskUp"
           
-          # Appliquer les droits d'exécution sur le binaire final
           chmod +x "$APP/MyTaskUp"
           
-          # Mettre à jour le Info.plist
           if [ -f "$APP/Info.plist" ]; then
             plutil -replace CFBundleExecutable -string "MyTaskUp" "$APP/Info.plist"
           fi
