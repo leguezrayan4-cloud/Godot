@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -15,70 +16,97 @@ jobs:
 
       - name: Download Godot 4.3 and export templates
         run: |
+          set -euo pipefail
           BASE=https://github.com/godotengine/godot/releases/download/4.3-stable
-          curl -L -o godot.zip "$BASE/Godot_v4.3-stable_macos.universal.zip"
-          curl -L -o templates.tpz "$BASE/Godot_v4.3-stable_export_templates.tpz"
+          curl -fL -o godot.zip "$BASE/Godot_v4.3-stable_macos.universal.zip"
+          curl -fL -o templates.tpz "$BASE/Godot_v4.3-stable_export_templates.tpz"
+
           unzip -q godot.zip
+          chmod +x Godot.app/Contents/MacOS/Godot
+
           TPL_DIR="$HOME/Library/Application Support/Godot/export_templates/4.3.stable"
           mkdir -p "$TPL_DIR"
           unzip -q templates.tpz -d tpl_tmp
-          mv tpl_tmp/templates/* "$TPL_DIR/"
+          cp -R tpl_tmp/templates/. "$TPL_DIR/"
+          ls -la "$TPL_DIR" | grep -i ios || { echo "ERREUR : template iOS absent"; exit 1; }
 
       - name: Export Xcode project
         run: |
+          set -euo pipefail
+          rm -rf build/ios
           mkdir -p build/ios
           ./Godot.app/Contents/MacOS/Godot --headless --path . \
             --export-release "MyTaskUp" build/ios
-          find build/ios -name "*.xcodeproj" -maxdepth 2
+
+          PROJ=$(find build/ios -name "*.xcodeproj" -maxdepth 2 | head -n 1)
+          test -n "$PROJ" || { echo "ERREUR : .xcodeproj non généré par Godot"; exit 1; }
+          echo "Projet Xcode : $PROJ"
 
       - name: Build unsigned .app
         run: |
-          PROJ=$(find . -name "*.xcodeproj" | head -n 1)
-          echo "Projet trouvé : $PROJ"
+          set -euo pipefail
+          PROJ=$(find build/ios -name "*.xcodeproj" -maxdepth 2 | head -n 1)
           SCHEME=$(basename "$PROJ" .xcodeproj)
+
           xcodebuild -project "$PROJ" -scheme "$SCHEME" \
-            -configuration Release -sdk iphoneos \
+            -configuration Release \
+            -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             SYMROOT="$PWD/build/products" \
             build
 
       - name: Package IPA
         run: |
-          APP=$(find build/products -name "*.app" -path "*iphoneos*" | head -n 1)
-          echo "App d'origine: $APP"
-          
-          APP_DIR=$(dirname "$APP")
-          APP_NAME=$(basename "$APP")
-          
-          if [ "$APP_NAME" != "MyTaskUp.app" ]; then
-            mv "$APP_DIR/$APP_NAME" "$APP_DIR/MyTaskUp.app"
-            APP="$APP_DIR/MyTaskUp.app"
-          else
-            APP="$APP_DIR/$APP_NAME"
-          fi
-          
-          INTERNAL_BIN=$(find "$APP" -maxdepth 1 -type f ! -name "*.plist" ! -name "*.car" | head -n 1)
-          if [ -n "$INTERNAL_BIN" ]; then
-            BIN_DIR=$(dirname "$INTERNAL_BIN")
-            mv "$INTERNAL_BIN" "$BIN_DIR/MyTaskUp"
-          fi
-          
-          # Nettoyage et signature ad-hoc propre du binaire
-          xattr -cr "$APP"
-          codesign --force --sign - "$APP/MyTaskUp"
-          chmod +x "$APP/MyTaskUp"
-          
-          if [ -f "$APP/Info.plist" ]; then
-            plutil -replace CFBundleExecutable -string "MyTaskUp" "$APP/Info.plist"
-          fi
-          
-          mkdir -p Payload
+          set -euo pipefail
+
+          APP=$(find build/products -type d -name "*.app" -path "*iphoneos*" | head -n 1)
+          test -n "$APP" || { echo "ERREUR : aucun .app trouvé"; exit 1; }
+          echo "App : $APP"
+
+          # Nom réel de l'exécutable, lu dans Info.plist (on ne renomme rien)
+          EXE=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist")
+          BIN="$APP/$EXE"
+          test -f "$BIN" || { echo "ERREUR : binaire $BIN introuvable"; exit 1; }
+          echo "Exécutable : $BIN"
+
+          # Vérifications : Mach-O arm64
+          file "$BIN"
+          lipo -archs "$BIN"
+          file -b "$BIN" | grep -q "Mach-O" || { echo "ERREUR : pas un Mach-O"; exit 1; }
+          lipo -archs "$BIN" | grep -q "arm64" || { echo "ERREUR : arm64 absent"; exit 1; }
+
+          # Retirer les signatures existantes sur tous les Mach-O
+          # (exécutable, frameworks, dylibs) pour que Sideloadly les re-signe
+          find "$APP" -type f | while read -r f; do
+            if file -b "$f" | grep -q "Mach-O"; then
+              codesign --remove-signature "$f" 2>/dev/null || true
+            fi
+          done
+
+          # Supprimer le scellement du bundle et le provisioning existant
+          rm -rf "$APP/_CodeSignature"
+          rm -f "$APP/embedded.mobileprovision"
+
+          chmod +x "$BIN"
+
+          # Empaquetage IPA (sans renommer le binaire ni le bundle)
+          rm -rf Payload MyTaskUp.ipa
+          mkdir Payload
           cp -R "$APP" Payload/
           zip -qr MyTaskUp.ipa Payload
+          rm -rf Payload
+
+          echo "Contenu de l'IPA :"
+          unzip -l MyTaskUp.ipa | head -n 20
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: MyTaskUp-unsigned
           path: MyTaskUp.ipa
+          if-no-files-found: error
