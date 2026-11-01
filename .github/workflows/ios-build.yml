@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir -p build/ios
           ./Godot.app/Contents/MacOS/Godot --headless --path . \
-            --export-release "iOS" build/ios
+            --export-release "MyTaskUp" build/ios
           find build/ios -name "*.xcodeproj" -maxdepth 2
 
       - name: Build unsigned .app
