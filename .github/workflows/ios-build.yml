@@ -46,7 +46,25 @@ jobs:
       - name: Package IPA
         run: |
           APP=$(find build/products -name "*.app" -path "*iphoneos*" | head -n 1)
-          echo "App: $APP"
+          echo "App d'origine: $APP"
+          
+          # Renommer le bundle .app s'il s'appelle ios.app
+          APP_DIR=$(dirname "$APP")
+          if [ -d "$APP_DIR/ios.app" ]; then
+            mv "$APP_DIR/ios.app" "$APP_DIR/MyTaskUp.app"
+            APP="$APP_DIR/MyTaskUp.app"
+          fi
+          
+          # Renommer l'exécutable interne s'il s'appelle ios
+          if [ -f "$APP/ios" ]; then
+            mv "$APP/ios" "$APP/MyTaskUp"
+          fi
+          
+          # Mettre à jour le Info.plist pour pointer vers le nouveau binaire
+          if [ -f "$APP/Info.plist" ]; then
+            plutil -replace CFBundleExecutable -string "MyTaskUp" "$APP/Info.plist"
+          fi
+          
           mkdir -p Payload
           cp -R "$APP" Payload/
           zip -qr MyTaskUp.ipa Payload
