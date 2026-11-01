@@ -33,30 +33,29 @@ jobs:
       - name: Export Xcode project
         run: |
           set -euo pipefail
-          rm -rf build
-          mkdir -p build
 
-          # Pas de chemin en argument : Godot utilise export_path du preset
-          # (build/ios/MyTaskUp.xcodeproj)
+          # Godot exige que le dossier de destination existe déjà
+          rm -rf build
+          mkdir -p build/ios
+
           ./Godot.app/Contents/MacOS/Godot --headless --path . \
-            --export-release "MyTaskUp" || true
+            --export-release "MyTaskUp"
 
           echo "--- Contenu de build/ après export ---"
-          find build -maxdepth 3 | head -n 50 || true
+          find build -maxdepth 3
 
-          PROJ=$(find . -name "*.xcodeproj" -not -path "./Godot.app/*" -not -path "./.git/*" | head -n 1)
-          test -n "$PROJ" || { echo "ERREUR : .xcodeproj introuvable dans le dépôt"; exit 1; }
+          PROJ=$(find build -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+          test -n "$PROJ" || { echo "ERREUR : .xcodeproj introuvable dans build/"; exit 1; }
           echo "Projet Xcode : $PROJ"
           echo "PROJ_PATH=$PROJ" >> "$GITHUB_ENV"
 
       - name: Build unsigned .app
         run: |
           set -euo pipefail
-          PROJ="$PROJ_PATH"
-          SCHEME=$(basename "$PROJ" .xcodeproj)
+          SCHEME=$(basename "$PROJ_PATH" .xcodeproj)
           echo "Scheme : $SCHEME"
 
-          xcodebuild -project "$PROJ" -scheme "$SCHEME" \
+          xcodebuild -project "$PROJ_PATH" -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
@@ -89,7 +88,7 @@ jobs:
           lipo -archs "$BIN" | grep -q "arm64" || { echo "ERREUR : arm64 absent"; exit 1; }
 
           # Retirer les signatures existantes sur tous les Mach-O
-          # (exécutable, frameworks, dylibs) pour que Sideloadly les re-signe
+          # pour que Sideloadly puisse les re-signer
           find "$APP" -type f | while read -r f; do
             if file -b "$f" | grep -q "Mach-O"; then
               codesign --remove-signature "$f" 2>/dev/null || true
