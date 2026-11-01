@@ -48,22 +48,23 @@ jobs:
           APP=$(find build/products -name "*.app" -path "*iphoneos*" | head -n 1)
           echo "App d'origine: $APP"
           
-          # Renommer le bundle .app s'il s'appelle ios.app
           APP_DIR=$(dirname "$APP")
+          
+          # Renommer le dossier .app s'il s'appelle ios.app
           if [ -d "$APP_DIR/ios.app" ]; then
             mv "$APP_DIR/ios.app" "$APP_DIR/MyTaskUp.app"
             APP="$APP_DIR/MyTaskUp.app"
           fi
           
-          # Renommer l'exécutable interne s'il s'appelle ios
+          # Renommer le binaire interne s'il s'appelle ios
           if [ -f "$APP/ios" ]; then
             mv "$APP/ios" "$APP/MyTaskUp"
           fi
           
-          # Donner les droits d'exécution indispensables au binaire iOS
+          # Appliquer les droits d'exécution sur le binaire final
           chmod +x "$APP/MyTaskUp"
           
-          # Mettre à jour le Info.plist pour pointer vers le bon binaire
+          # Mettre à jour le Info.plist
           if [ -f "$APP/Info.plist" ]; then
             plutil -replace CFBundleExecutable -string "MyTaskUp" "$APP/Info.plist"
           fi
