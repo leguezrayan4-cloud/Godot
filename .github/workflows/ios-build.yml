@@ -64,10 +64,9 @@ jobs:
             mv "$INTERNAL_BIN" "$BIN_DIR/MyTaskUp"
           fi
           
-          # Nettoyage des attributs et signature ad-hoc propre sur macOS pour éviter l'erreur de Sideloadly
+          # Nettoyage et signature ad-hoc propre du binaire
           xattr -cr "$APP"
-          codesign --force --sign - --entitlements "$APP/Entitlements.plist" "$APP/MyTaskUp" || codesign --force --sign - "$APP/MyTaskUp"
-          
+          codesign --force --sign - "$APP/MyTaskUp"
           chmod +x "$APP/MyTaskUp"
           
           if [ -f "$APP/Info.plist" ]; then
