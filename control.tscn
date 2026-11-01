@@ -1,0 +1,368 @@
+[gd_scene format=3 uid="uid://ofxdbmfhj7pt"]
+
+[ext_resource type="Theme" uid="uid://cn7uvxhdu81ur" path="res://theme/taskup_theme.tres" id="2_theme"]
+
+[sub_resource type="GDScript" id="GDScript_0fbet"]
+script/source = "extends Control
+## Écran principal de MyTaskUp : ajout, affichage, complétion, renommage et suppression.
+
+@onready var task_input: LineEdit = %TaskInput
+@onready var task_list: VBoxContainer = %TaskList
+@onready var empty_state: Label = %EmptyState
+@onready var rename_overlay: Control = %RenameOverlay
+@onready var rename_input: LineEdit = %RenameInput
+
+## Couleur d'une tâche active.
+const COLOR_ACTIVE := Color(1.0, 1.0, 1.0, 1.0)
+## Couleur d'une tâche terminée (grisée).
+const COLOR_DONE := Color(0.5, 0.52, 0.58, 1.0)
+
+## Tâche actuellement en cours de renommage.
+var _rename_target: RichTextLabel = null
+
+
+func _ready() -> void:
+	rename_input.text_submitted.connect(_on_rename_submitted)
+	_focus_input()
+	_update_empty_state()
+
+
+func _on_add_button_pressed() -> void:
+	_add_task_from_input()
+
+
+func _on_task_input_submitted(_text: String) -> void:
+	_add_task_from_input()
+
+
+## Donne le focus au champ de saisie s'il est dans l'arbre et non déjà focalisé.
+func _focus_input() -> void:
+	if task_input.is_inside_tree() and not task_input.has_focus():
+		task_input.grab_focus()
+
+
+## Récupère le texte du champ et ajoute une tâche si le champ n'est pas vide.
+func _add_task_from_input() -> void:
+	var text: String = task_input.text.strip_edges()
+	if text.is_empty():
+		_focus_input()
+		return
+
+	_create_task_card(text)
+
+	task_input.clear()
+	_focus_input()
+	_update_empty_state()
+
+
+## Construit une carte de tâche : case à cocher, texte et bouton d'options (•••).
+func _create_task_card(text: String) -> void:
+	var card := PanelContainer.new()
+	card.theme_type_variation = &\"TaskCard\"
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override(\"separation\", 6)
+	card.add_child(row)
+
+	var done_check := CheckBox.new()
+	done_check.custom_minimum_size = Vector2(36, 0)
+	done_check.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(done_check)
+
+	var label := RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.set_meta(\"raw\", text)
+	label.set_meta(\"done\", false)
+	_refresh_label(label)
+	row.add_child(label)
+
+	var menu_button := Button.new()
+	menu_button.text = \"•••\"
+	menu_button.custom_minimum_size = Vector2(46, 40)
+	menu_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	menu_button.focus_mode = Control.FOCUS_NONE
+	menu_button.tooltip_text = \"Options\"
+	menu_button.add_theme_color_override(\"font_color\", Color(0.6, 0.63, 0.7, 1.0))
+	menu_button.add_theme_color_override(\"font_hover_color\", Color(1, 1, 1, 1))
+	menu_button.add_theme_color_override(\"font_pressed_color\", Color(1, 1, 1, 1))
+	menu_button.add_theme_stylebox_override(\"normal\", _make_menu_style(Color(0, 0, 0, 0)))
+	menu_button.add_theme_stylebox_override(\"hover\", _make_menu_style(Color(1, 1, 1, 0.09)))
+	menu_button.add_theme_stylebox_override(\"pressed\", _make_menu_style(Color(1, 1, 1, 0.14)))
+	menu_button.add_theme_stylebox_override(\"focus\", StyleBoxEmpty.new())
+	row.add_child(menu_button)
+
+	var popup := PopupMenu.new()
+	popup.add_item(\"Renommer\", 0)
+	popup.add_item(\"Supprimer\", 1)
+	menu_button.add_child(popup)
+
+	task_list.add_child(card)
+
+	done_check.toggled.connect(_on_task_done_toggled.bind(label))
+	menu_button.pressed.connect(_on_menu_button_pressed.bind(menu_button, popup))
+	popup.id_pressed.connect(_on_menu_id_pressed.bind(label, card))
+
+
+## Bascule l'état terminé : texte barré et grisé.
+func _on_task_done_toggled(pressed: bool, label: RichTextLabel) -> void:
+	label.set_meta(\"done\", pressed)
+	_refresh_label(label)
+
+
+## Ouvre le menu contextuel (Renommer / Supprimer) sous le bouton •••.
+func _on_menu_button_pressed(button: Button, popup: PopupMenu) -> void:
+	popup.reset_size()
+	var rect: Rect2 = button.get_global_rect()
+	popup.position = Vector2i(int(rect.end.x - popup.size.x), int(rect.end.y + 4))
+	popup.popup()
+
+
+## Traite le choix du menu contextuel.
+func _on_menu_id_pressed(id: int, label: RichTextLabel, card: PanelContainer) -> void:
+	match id:
+		0:
+			_open_rename(label)
+		1:
+			_delete_task(card)
+
+
+## Ouvre la superposition de renommage pour la tâche ciblée.
+func _open_rename(label: RichTextLabel) -> void:
+	_rename_target = label
+	rename_input.text = str(label.get_meta(\"raw\", \"\"))
+	rename_overlay.visible = true
+	rename_input.grab_focus()
+	rename_input.select_all()
+
+
+## Valide le renommage via la touche Entrée dans le champ.
+func _on_rename_submitted(_text: String) -> void:
+	_confirm_rename()
+
+
+## Valide le renommage (bouton « Renommer »).
+func _confirm_rename() -> void:
+	if _rename_target != null:
+		var new_text: String = rename_input.text.strip_edges()
+		if not new_text.is_empty():
+			_rename_target.set_meta(\"raw\", new_text)
+			_refresh_label(_rename_target)
+	_close_rename()
+
+
+## Ferme la superposition de renommage.
+func _close_rename() -> void:
+	rename_overlay.visible = false
+	_rename_target = null
+
+
+## Supprime la carte de tâche de la liste.
+func _delete_task(card: Node) -> void:
+	card.queue_free()
+	_update_empty_state()
+
+
+## Applique au label le texte brut et l'état terminé (barré et grisé si coché).
+func _refresh_label(label: RichTextLabel) -> void:
+	var raw: String = str(label.get_meta(\"raw\", \"\"))
+	if bool(label.get_meta(\"done\", false)):
+		label.text = \"[s]%s[/s]\" % raw
+		label.modulate = COLOR_DONE
+	else:
+		label.text = raw
+		label.modulate = COLOR_ACTIVE
+
+
+## Affiche l'état vide uniquement quand aucune tâche n'est présente.
+func _update_empty_state() -> void:
+	var count: int = 0
+	for child in task_list.get_children():
+		if not child.is_queued_for_deletion():
+			count += 1
+	empty_state.visible = count == 0
+
+
+## Style d'un bouton d'options (fond transparent, survol subtil).
+func _make_menu_style(bg: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 8.0
+	sb.content_margin_right = 8.0
+	sb.content_margin_top = 4.0
+	sb.content_margin_bottom = 4.0
+	return sb
+"
+
+[node name="Control" type="Control" unique_id=1091423239]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = SubResource("GDScript_0fbet")
+
+[node name="Background" type="ColorRect" parent="." unique_id=405075421]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.039, 0.043, 0.063, 1)
+
+[node name="ScreenMargin" type="MarginContainer" parent="." unique_id=1821367626]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="Sheet" type="PanelContainer" parent="ScreenMargin" unique_id=2129622618]
+layout_mode = 2
+theme_type_variation = &"Sheet"
+
+[node name="Content" type="VBoxContainer" parent="ScreenMargin/Sheet" unique_id=905788663]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="ScreenMargin/Sheet/Content" unique_id=1065051992]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "MyTaskUp"
+
+[node name="Subtitle" type="Label" parent="ScreenMargin/Sheet/Content" unique_id=388591193]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.64, 1)
+theme_override_font_sizes/font_size = 13
+text = "Organisez votre journée, une tâche à la fois."
+
+[node name="InputRow" type="HBoxContainer" parent="ScreenMargin/Sheet/Content" unique_id=881467922]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TaskInput" type="LineEdit" parent="ScreenMargin/Sheet/Content/InputRow" unique_id=1386992970]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Nouvelle tâche..."
+clear_button_enabled = true
+
+[node name="AddButton" type="Button" parent="ScreenMargin/Sheet/Content/InputRow" unique_id=1534488164]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(58, 0)
+layout_mode = 2
+tooltip_text = "Ajouter la tâche"
+theme_override_font_sizes/font_size = 24
+text = "+"
+
+[node name="ListArea" type="Control" parent="ScreenMargin/Sheet/Content" unique_id=2088975903]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Scroll" type="ScrollContainer" parent="ScreenMargin/Sheet/Content/ListArea" unique_id=2073659254]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="TaskList" type="VBoxContainer" parent="ScreenMargin/Sheet/Content/ListArea/Scroll" unique_id=1460066630]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="EmptyState" type="Label" parent="ScreenMargin/Sheet/Content/ListArea" unique_id=2119932350]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.42, 0.45, 0.52, 1)
+theme_override_font_sizes/font_size = 15
+text = "Aucune tâche pour l'instant.
+Ajoutez-en une ci-dessus."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RenameOverlay" type="Control" parent="." unique_id=1853540247]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="RenameOverlay" unique_id=1582971507]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.55)
+
+[node name="Center" type="CenterContainer" parent="RenameOverlay" unique_id=1487702602]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RenamePanel" type="PanelContainer" parent="RenameOverlay/Center" unique_id=695350742]
+layout_mode = 2
+theme_type_variation = &"Dialog"
+
+[node name="VBox" type="VBoxContainer" parent="RenameOverlay/Center/RenamePanel" unique_id=1401650630]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="DialogTitle" type="Label" parent="RenameOverlay/Center/RenamePanel/VBox" unique_id=1926040564]
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "Renommer la tâche"
+
+[node name="RenameInput" type="LineEdit" parent="RenameOverlay/Center/RenamePanel/VBox" unique_id=351046928]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(296, 0)
+layout_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="RenameOverlay/Center/RenamePanel/VBox" unique_id=1554096431]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="CancelButton" type="Button" parent="RenameOverlay/Center/RenamePanel/VBox/Actions" unique_id=1161736304]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "Annuler"
+
+[node name="ConfirmButton" type="Button" parent="RenameOverlay/Center/RenamePanel/VBox/Actions" unique_id=1561377697]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Renommer"
+
+[connection signal="text_submitted" from="ScreenMargin/Sheet/Content/InputRow/TaskInput" to="." method="_on_task_input_submitted"]
+[connection signal="pressed" from="ScreenMargin/Sheet/Content/InputRow/AddButton" to="." method="_on_add_button_pressed"]
+[connection signal="pressed" from="RenameOverlay/Center/RenamePanel/VBox/Actions/CancelButton" to="." method="_close_rename"]
+[connection signal="pressed" from="RenameOverlay/Center/RenamePanel/VBox/Actions/ConfirmButton" to="." method="_confirm_rename"]
