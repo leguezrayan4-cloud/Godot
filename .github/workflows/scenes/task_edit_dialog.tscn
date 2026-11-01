@@ -1,0 +1,203 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/task_edit_dialog.gd" id="1_edit"]
+
+[node name="TaskEditDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_edit")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Card" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(344, 0)
+layout_mode = 2
+theme_type_variation = &"Dialog"
+
+[node name="VBox" type="VBoxContainer" parent="Center/Card"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="Label" parent="Center/Card/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Éditer la tâche"
+
+[node name="Scroll" type="ScrollContainer" parent="Center/Card/VBox"]
+custom_minimum_size = Vector2(0, 560)
+layout_mode = 2
+horizontal_scroll_mode = 0
+follow_focus = true
+
+[node name="Form" type="VBoxContainer" parent="Center/Card/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 13
+
+[node name="TitleLabel" type="Label" parent="Center/Card/VBox/Scroll/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.65, 1)
+theme_override_font_sizes/font_size = 13
+text = "TITRE"
+
+[node name="TitleInput" type="LineEdit" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Nom de la tâche"
+
+[node name="DescLabel" type="Label" parent="Center/Card/VBox/Scroll/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.65, 1)
+theme_override_font_sizes/font_size = 13
+text = "TÂCHE"
+
+[node name="DescInput" type="TextEdit" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 76)
+layout_mode = 2
+placeholder_text = "Détails, notes..."
+wrap_mode = 1
+
+[node name="ReminderToggle" type="CheckButton" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Rappel"
+
+[node name="ReminderBox" type="VBoxContainer" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DayRow" type="HBoxContainer" parent="Center/Card/VBox/Scroll/Form/ReminderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TimeRow" type="HBoxContainer" parent="Center/Card/VBox/Scroll/Form/ReminderBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="HourSpin" type="SpinBox" parent="Center/Card/VBox/Scroll/Form/ReminderBox/TimeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+max_value = 23.0
+value = 9.0
+
+[node name="TimeSep" type="Label" parent="Center/Card/VBox/Scroll/Form/ReminderBox/TimeRow"]
+layout_mode = 2
+text = ":"
+
+[node name="MinuteSpin" type="SpinBox" parent="Center/Card/VBox/Scroll/Form/ReminderBox/TimeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 0)
+layout_mode = 2
+max_value = 55.0
+step = 5.0
+
+[node name="CatLabel" type="Label" parent="Center/Card/VBox/Scroll/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.65, 1)
+theme_override_font_sizes/font_size = 13
+text = "CATÉGORIE"
+
+[node name="CategoryRow" type="HFlowContainer" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="IconLabel" type="Label" parent="Center/Card/VBox/Scroll/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.65, 1)
+theme_override_font_sizes/font_size = 13
+text = "ICÔNE"
+
+[node name="IconRow" type="HFlowContainer" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="ImageRow" type="HBoxContainer" parent="Center/Card/VBox/Scroll/Form"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ImportImageButton" type="Button" parent="Center/Card/VBox/Scroll/Form/ImageRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "Importer une image"
+
+[node name="ClearImageButton" type="Button" parent="Center/Card/VBox/Scroll/Form/ImageRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "Retirer"
+
+[node name="ImagePreview" type="TextureRect" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RecLabel" type="Label" parent="Center/Card/VBox/Scroll/Form"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.58, 0.65, 1)
+theme_override_font_sizes/font_size = 13
+text = "RÉCURRENCE"
+
+[node name="RecurrenceRow" type="HFlowContainer" parent="Center/Card/VBox/Scroll/Form"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="Actions" type="HBoxContainer" parent="Center/Card/VBox"]
+layout_mode = 2
+alignment = 2
+theme_override_constants/separation = 10
+
+[node name="CancelButton" type="Button" parent="Center/Card/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GhostButton"
+text = "Annuler"
+
+[node name="SaveButton" type="Button" parent="Center/Card/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enregistrer"
+
+[node name="ImageFileDialog" type="FileDialog" parent="."]
+unique_name_in_owner = true
+title = "Choisir une image"
+size = Vector2i(560, 400)
+file_mode = 0
+access = 2
+filters = PackedStringArray("*.png,*.jpg,*.jpeg,*.webp ; Images")
