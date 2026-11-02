@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 60
 
     steps:
@@ -17,6 +17,12 @@ jobs:
       - name: Download Godot 4.3 and export templates
         run: |
           set -euo pipefail
+
+          # Téléchargement hors du dépôt pour ne pas polluer le projet exporté
+          TOOLS_DIR="$RUNNER_TEMP/godot-tools"
+          mkdir -p "$TOOLS_DIR"
+          cd "$TOOLS_DIR"
+
           BASE=https://github.com/godotengine/godot/releases/download/4.3-stable
           curl -fL -o godot.zip "$BASE/Godot_v4.3-stable_macos.universal.zip"
           curl -fL -o templates.tpz "$BASE/Godot_v4.3-stable_export_templates.tpz"
@@ -30,6 +36,8 @@ jobs:
           cp -R tpl_tmp/templates/. "$TPL_DIR/"
           ls -la "$TPL_DIR" | grep -i ios || { echo "ERREUR : template iOS absent"; exit 1; }
 
+          echo "GODOT_BIN=$TOOLS_DIR/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+
       - name: Export Xcode project
         run: |
           set -euo pipefail
@@ -38,7 +46,7 @@ jobs:
           rm -rf build
           mkdir -p build/ios
 
-          ./Godot.app/Contents/MacOS/Godot --headless --path . \
+          "$GODOT_BIN" --headless --path "$GITHUB_WORKSPACE" \
             --export-release "MyTaskUp"
 
           echo "--- Contenu de build/ après export ---"
@@ -47,7 +55,7 @@ jobs:
           PROJ=$(find build -name "*.xcodeproj" -maxdepth 3 | head -n 1)
           test -n "$PROJ" || { echo "ERREUR : .xcodeproj introuvable dans build/"; exit 1; }
           echo "Projet Xcode : $PROJ"
-          echo "PROJ_PATH=$PROJ" >> "$GITHUB_ENV"
+          echo "PROJ_PATH=$GITHUB_WORKSPACE/$PROJ" >> "$GITHUB_ENV"
 
       - name: Build unsigned .app
         run: |
@@ -64,7 +72,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            SYMROOT="$PWD/build/products" \
+            SYMROOT="$GITHUB_WORKSPACE/build/products" \
             build
 
       - name: Package IPA
