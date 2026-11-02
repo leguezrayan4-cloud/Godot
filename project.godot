@@ -22,6 +22,7 @@ AppSettings="*res://scripts/app_settings.gd"
 Auth="*res://scripts/auth.gd"
 Reminder="*res://scripts/reminder_service.gd"
 GoogleAuth="*res://scripts/google_auth.gd"
+KeyboardAvoid="*res://scripts/keyboard_avoid.gd"
 
 [display]
 
