@@ -10,6 +10,7 @@ extends Control
 @onready var activity_label: Label = %ActivityLabel
 
 var _last_message: String = ""
+var conversation_history := []
 
 const SUGGESTIONS := [
 	"Ajoute appeler le client",
@@ -30,11 +31,19 @@ func _ready() -> void:
 	UiFx.attach_recursive(self)
 	chat_input.text_submitted.connect(_on_submitted)
 	%SendButton.pressed.connect(_on_send)
-	_build_suggestions()
+	KeyboardAvoid.register_pad($Margin, -1.0)
+	_load_history()
 	var mode_text := "Mode local — aucune donnée ne quitte l'appareil."
 	if _ai_online():
 		mode_text = "IA en ligne : %s." % AppSettings.ai_model
-	_add_bubble("Bonjour ! Je peux créer, terminer ou supprimer des tâches pour vous.\nEssayez : « Ajoute appeler le client » ou « Que me reste-t-il ? ».\n%s" % mode_text, false)
+	var greet := "Bonjour ! Je peux créer, terminer ou supprimer des tâches pour vous.\nEssayez : « Ajoute appeler le client » ou « Que me reste-t-il ? ».\n%s" % mode_text
+	_add_bubble(greet, false)
+	conversation_history.append({"role": "assistant", "content": greet})
+	_save_history()
+
+
+func _process(_delta: float) -> void:
+	KeyboardAvoid._compute_height()
 
 
 func _build_suggestions() -> void:
@@ -51,8 +60,39 @@ func _build_suggestions() -> void:
 		suggest_row.add_child(chip)
 
 
+func _load_history() -> void:
+	var hist_path := "user://assistant_history.json"
+	var f := FileAccess.open(hist_path, FileAccess.READ)
+	if f != null:
+		var content := f.get_as_text()
+		f.close()
+		if content.length() > 0:
+			var data: Array = JSON.parse_string(content)
+			conversation_history = []
+			for entry in data:
+				conversation_history.append({"role": entry[0], "content": entry[1]})
+
+
+func _save_history() -> void:
+	var data := []
+	for entry in conversation_history:
+		data.append([entry.role, entry.content])
+	var hist_path := "user://assistant_history.json"
+	var f := FileAccess.open(hist_path, FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify(data, "\t"))
+		f.close()
+
+
 func _on_submitted(_text: String) -> void:
-	_on_send()
+	var message: String = _text.strip_edges()
+	if message.is_empty():
+		chat_input.grab_focus()
+		return
+	_add_bubble(message, true)
+	chat_input.clear()
+	chat_input.grab_focus()
+	await _respond(message)
 
 
 func _on_send() -> void:
@@ -61,6 +101,8 @@ func _on_send() -> void:
 		chat_input.grab_focus()
 		return
 	_add_bubble(message, true)
+	conversation_history.append({"role": "user", "content": message})
+	_save_history()
 	chat_input.clear()
 	chat_input.grab_focus()
 	await _respond(message)
@@ -289,6 +331,7 @@ func _add_bubble(text: String, from_user: bool) -> Node:
 	label.bbcode_enabled = true
 	label.fit_content = true
 	label.scroll_active = false
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	label.custom_minimum_size = Vector2(200, 0)
 	label.add_theme_color_override("default_color", Color(1, 1, 1, 0.97) if from_user else Color(0.9, 0.91, 0.94, 1))
 	label.text = text

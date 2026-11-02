@@ -5,6 +5,8 @@ signal settings_changed
 
 const SAVE_PATH := "user://settings.json"
 
+const DEFAULT_ACCENT := Color(0.42, 0.36, 0.91)
+
 var user_name: String = "Utilisateur"
 var email: String = "utilisateur@email.com"
 var sync_enabled: bool = true
@@ -14,6 +16,7 @@ var ai_provider: String = "local"        # "local" (règles) | "http" (OpenAI-co
 var ai_base_url: String = "https://api.openai.com/v1"
 var ai_model: String = "gpt-4o-mini"
 var ai_api_key: String = ""
+var accent: Color = DEFAULT_ACCENT
 
 
 func _ready() -> void:
@@ -61,6 +64,11 @@ func set_ai_api_key(value: String) -> void:
 	_commit()
 
 
+func set_accent(value: Color) -> void:
+	accent = value
+	_commit()
+
+
 ## Simule une synchronisation et horodate l'opération.
 func sync_now() -> String:
 	last_sync_text = Time.get_time_string_from_system()
@@ -84,6 +92,7 @@ func save_settings() -> void:
 		"ai_base_url": ai_base_url,
 		"ai_model": ai_model,
 		"ai_api_key": ai_api_key,
+		"accent": accent.to_html(),
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -110,3 +119,6 @@ func load_settings() -> void:
 	ai_base_url = str(parsed.get("ai_base_url", ai_base_url))
 	ai_model = str(parsed.get("ai_model", ai_model))
 	ai_api_key = str(parsed.get("ai_api_key", ai_api_key))
+	var html: String = str(parsed.get("accent", ""))
+	if html.length() == 7 and html.begins_with("#"):
+		accent = Color(html)

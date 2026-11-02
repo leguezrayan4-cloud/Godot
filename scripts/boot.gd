@@ -9,11 +9,17 @@ extends Control
 
 
 func _ready() -> void:
+	theme = AccentTheme.build(AppSettings.accent)
+	AppSettings.settings_changed.connect(_on_settings_changed)
 	main_shell.visible = false
 	login.visible = false
 	splash.visible = true
 	login.login_succeeded.connect(_on_login_succeeded)
 	_boot()
+
+
+func _on_settings_changed() -> void:
+	theme = AccentTheme.build(AppSettings.accent)
 
 
 func _boot() -> void:

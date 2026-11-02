@@ -24,7 +24,7 @@ static func notify(id: int, title: String, body: String) -> bool:
 		if plugin.has_method("notify"):
 			plugin.notify(id, title, body)
 			return true
-	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG):
+	if DisplayServer.has_method("dialog_show"):
 		DisplayServer.dialog_show(title, body, ["OK"], func(_idx: int) -> void: pass)
 		return true
 	return false

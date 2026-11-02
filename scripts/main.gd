@@ -19,6 +19,8 @@ extends Control
 
 var _tabs: Dictionary = {}
 var _current_tab: String = ""
+var _transitioning: bool = false
+var _pending_tab: String = ""
 var _alert_task: TaskData = null
 var _editing_new: bool = false
 var _sfx: AudioStreamPlayer
@@ -49,6 +51,21 @@ func _ready() -> void:
 	nav_assistant.icon = _load_nav_icon("nav_assistant")
 	nav_settings.icon = _load_nav_icon("nav_settings")
 	show_tab("tasks")
+	_apply_safe_area()
+	get_viewport().size_changed.connect(_apply_safe_area)
+
+
+func _apply_safe_area() -> void:
+	var insets := ViewportUtil.safe_area_insets()
+	var content: Control = $Content
+	var nav: Control = $NavBar
+	content.offset_top = insets.x
+	content.offset_left = insets.z
+	content.offset_right = -insets.w
+	# content.offset_bottom retiré : KeyboardAvoid gère la hauteur clavier
+	nav.offset_left = insets.z
+	nav.offset_right = -insets.w
+	nav.offset_bottom = -insets.y
 
 
 ## Charge une icône de navigation, avec repli lecture directe si non importée.
@@ -64,7 +81,8 @@ func _load_nav_icon(icon_name: String) -> Texture2D:
 	return tex
 
 
-## Affiche l'onglet demandé avec une transition par glissement.
+## Affiche l'onglet demandé avec une transition par glissement (robuste : pas de
+## transition concurrente, toujours une seule vue visible à la fin).
 func show_tab(tab_id: String) -> void:
 	for key in _tabs:
 		var button: Button = _tabs[key][1]
@@ -73,16 +91,27 @@ func show_tab(tab_id: String) -> void:
 	if tab_id == _current_tab:
 		return
 
+	if _transitioning:
+		# Mémorise la dernière demande ; on la traitera à la fin.
+		_pending_tab = tab_id
+		return
+
+	_transitioning = true
+	_pending_tab = ""
+
 	var order := ["tasks", "assistant", "settings"]
 	var incoming: Control = _tabs[tab_id][0]
 	var width: float = size.x if size.x > 0.0 else 400.0
 	incoming.visible = true
+	incoming.move_to_front()
 
 	if _current_tab == "":
 		incoming.position.x = 0.0
 		incoming.modulate.a = 1.0
 		_current_tab = tab_id
+		_transitioning = false
 		UiFx.fade_in(incoming, 0.2)
+		_process_pending()
 		return
 
 	var direction: int = signi(order.find(tab_id) - order.find(_current_tab))
@@ -99,8 +128,19 @@ func show_tab(tab_id: String) -> void:
 	tw.chain().tween_callback(func() -> void:
 		outgoing.visible = false
 		outgoing.position.x = 0.0
-		outgoing.modulate.a = 1.0)
-	_current_tab = tab_id
+		outgoing.modulate.a = 1.0
+		incoming.position.x = 0.0
+		incoming.modulate.a = 1.0
+		_current_tab = tab_id
+		_transitioning = false
+		_process_pending())
+
+
+func _process_pending() -> void:
+	if _pending_tab != "" and _pending_tab != _current_tab:
+		var next := _pending_tab
+		_pending_tab = ""
+		show_tab(next)
 
 
 ## Affiche l'alarme d'un rappel imminent.

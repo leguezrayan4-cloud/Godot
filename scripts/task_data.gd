@@ -17,6 +17,8 @@ var reminder_unix: float = 0.0
 var reminder_fired: bool = false
 var recurrence: String = "none"
 var created_unix: float = 0.0
+## Sous-tâches : tableau de dictionnaires {"title": String, "done": bool}.
+var subtasks: Array = []
 
 
 ## Vrai si la tâche possède un rappel actif.
@@ -53,8 +55,56 @@ func recurrence_label() -> String:
 			return ""
 
 
+# --- Sous-tâches -------------------------------------------------------------
+
+func subtasks_count() -> int:
+	return subtasks.size()
+
+
+func subtasks_done_count() -> int:
+	var n: int = 0
+	for entry in subtasks:
+		if typeof(entry) == TYPE_DICTIONARY and bool(entry.get("done", false)):
+			n += 1
+	return n
+
+
+func subtask_at(index: int) -> Dictionary:
+	if index < 0 or index >= subtasks.size():
+		return {}
+	var entry: Variant = subtasks[index]
+	return entry if typeof(entry) == TYPE_DICTIONARY else {}
+
+
+func toggle_subtask(index: int) -> void:
+	var st: Dictionary = subtask_at(index)
+	if st.is_empty():
+		return
+	st["done"] = not bool(st.get("done", false))
+	subtasks[index] = st
+
+
+func add_subtask(title: String) -> void:
+	var clean: String = title.strip_edges()
+	if clean.is_empty():
+		return
+	subtasks.append({"title": clean, "done": false})
+
+
+func remove_subtask(index: int) -> void:
+	if index >= 0 and index < subtasks.size():
+		subtasks.remove_at(index)
+
+
 ## Sérialise la tâche en dictionnaire.
 func to_dict() -> Dictionary:
+	var subs: Array = []
+	for entry in subtasks:
+		if typeof(entry) == TYPE_DICTIONARY:
+			subs.append({
+				"title": str(entry.get("title", "")),
+				"done": bool(entry.get("done", false)),
+			})
 	return {
 		"id": id,
 		"title": title,
@@ -69,6 +119,7 @@ func to_dict() -> Dictionary:
 		"reminder_fired": reminder_fired,
 		"recurrence": recurrence,
 		"created_unix": created_unix,
+		"subtasks": subs,
 	}
 
 
@@ -88,6 +139,14 @@ static func from_dict(d: Dictionary) -> TaskData:
 	t.reminder_fired = bool(d.get("reminder_fired", false))
 	t.recurrence = str(d.get("recurrence", "none"))
 	t.created_unix = float(d.get("created_unix", 0.0))
+	t.subtasks = []
+	var raw: Variant = d.get("subtasks", [])
+	if typeof(raw) == TYPE_ARRAY:
+		for entry in raw:
+			if typeof(entry) == TYPE_DICTIONARY:
+				var title: String = str(entry.get("title", "")).strip_edges()
+				if not title.is_empty():
+					t.subtasks.append({"title": title, "done": bool(entry.get("done", false))})
 	return t
 
 

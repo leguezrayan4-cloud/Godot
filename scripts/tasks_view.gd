@@ -40,6 +40,9 @@ var _sort_chips: Array[Button] = []
 var _category_chips: Array[Button] = []
 var _category_values: Array[String] = []
 var _cat_container: HBoxContainer
+var _swipe_start := Vector2(0, 0)
+var _swipe_threshold := 40.0
+var _swiping: bool = false
 
 
 func _ready() -> void:
@@ -50,6 +53,23 @@ func _ready() -> void:
 	TaskStore.tasks_changed.connect(_refresh)
 	_build_filter_panel()
 	_refresh()
+
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_left") and _swiping == false:
+		_swiping = true
+		_swipe_start = get_global_mouse_position()
+	elif event.is_action_released("ui_left") and _swiping:
+		var end_pos: Vector2 = get_global_mouse_position()
+		var delta: Vector2 = end_pos - _swipe_start
+		if abs(delta.x) > _swipe_threshold and abs(delta.y) < _swipe_threshold:
+			if delta.x < 0:
+				# Swipe left
+				pass
+			else:
+				# Swipe right
+				pass
+		_swiping = false
 
 
 func _on_search_changed(text: String) -> void:
@@ -200,6 +220,17 @@ func _render() -> void:
 		UiFx.fade_in(card, 0.22)
 		shown += 1
 	empty_state.visible = shown == 0
+	if shown == 0:
+		var empty_label: Label = empty_state.get_node_or_null("EmptyLabel")
+		if empty_label == null:
+			empty_label = Label.new()
+			empty_label.name = "EmptyLabel"
+			empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			empty_state.add_child(empty_label)
+		if _search != "" or _status != "all" or _category != "" or _sort != "due":
+			empty_label.text = "Aucun résultat pour cette recherche ou ces filtres."
+		else:
+			empty_label.text = "Aucune tâche pour le moment. Appuyez sur « + » pour en créer une."
 
 
 func _matches(task: TaskData) -> bool:
@@ -228,6 +259,7 @@ func _build_card(task: TaskData) -> PanelContainer:
 	title.bbcode_enabled = true
 	title.fit_content = true
 	title.scroll_active = false
+	title.mouse_filter = Control.MOUSE_FILTER_PASS
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.set_meta("task_id", task.id)
 	_apply_title(title, task)

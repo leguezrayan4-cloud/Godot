@@ -62,6 +62,7 @@ func _ready() -> void:
 	import_image_button.pressed.connect(_on_import_pressed)
 	clear_image_button.pressed.connect(_on_clear_image)
 	image_file_dialog.file_selected.connect(_on_image_selected)
+	KeyboardAvoid.register_pad($Center, -1.0)
 	visible = false
 
 

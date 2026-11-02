@@ -7,6 +7,20 @@ extends Control
 @onready var title: Label = %SplashTitle
 @onready var status_label: Label = %StatusLabel
 @onready var bar: ProgressBar = %ProgressBar
+@onready var center: CenterContainer = $Center
+
+
+func _ready() -> void:
+	_apply_safe_area()
+	get_viewport().size_changed.connect(_apply_safe_area)
+
+
+func _apply_safe_area() -> void:
+	var insets := ViewportUtil.safe_area_insets()
+	center.offset_left = insets.z
+	center.offset_top = insets.x
+	center.offset_right = -insets.w
+	center.offset_bottom = -insets.y
 
 
 ## Exécute la séquence de chargement ; à attendre (`await splash.run()`).

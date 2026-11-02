@@ -22,6 +22,7 @@ signal login_succeeded
 @onready var back_button: Button = %BackButton
 @onready var wait_state: Label = %WaitState
 @onready var wait_cancel_button: Button = %WaitCancelButton
+@onready var center: CenterContainer = $Center
 
 
 func _ready() -> void:
@@ -37,6 +38,23 @@ func _ready() -> void:
 	wait_cancel_button.pressed.connect(_show_creds)
 	Auth.verification_sent.connect(_on_code_sent)
 	GoogleAuth.flow_state.connect(_on_google_state)
+	_apply_safe_area()
+	get_viewport().size_changed.connect(_apply_safe_area)
+	KeyboardAvoid.register_pad(center, ViewportUtil.safe_area_insets().y)
+
+
+func _exit_tree() -> void:
+	KeyboardAvoid.unregister_pad(center)
+
+
+## Respecte l'encoche / la barre d'accueil ; le padding bas (clavier) est géré
+## par KeyboardAvoid, qui possède offset_bottom du conteneur.
+func _apply_safe_area() -> void:
+	var insets := ViewportUtil.safe_area_insets()
+	center.offset_left = insets.z
+	center.offset_top = insets.x
+	center.offset_right = -insets.w
+	KeyboardAvoid.set_base(center, insets.y)
 
 
 ## Réinitialise le formulaire (email pré-rempli avec le dernier compte connu).
@@ -44,16 +62,12 @@ func reset() -> void:
 	email_input.text = Auth.last_email
 	password_input.text = ""
 	code_input.text = ""
-	cred_error_clear()
+	creds_error.visible = false
+	code_error.visible = false
 	_show_page(creds_page)
 	UiFx.fade_in(self, 0.3)
 	if is_instance_valid(card):
 		UiFx.pop_in(card, 0.4)
-
-
-func cred_error_clear() -> void:
-	creds_error.visible = false
-	code_error.visible = false
 
 
 func _show_page(page: Control) -> void:

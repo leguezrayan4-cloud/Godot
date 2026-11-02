@@ -19,7 +19,7 @@ func _ready() -> void:
 
 
 ## Ajoute une tâche et renvoie l'objet créé. `options` accepte icon, icon_color,
-## category, description, reminder_enabled, reminder_unix, recurrence.
+## category, description, reminder_enabled, reminder_unix, recurrence, subtasks.
 func add_task(title: String, options: Dictionary = {}) -> TaskData:
 	var t := TaskData.new()
 	t.id = _next_id
@@ -34,11 +34,30 @@ func add_task(title: String, options: Dictionary = {}) -> TaskData:
 	t.reminder_enabled = bool(options.get("reminder_enabled", false))
 	t.reminder_unix = float(options.get("reminder_unix", 0.0))
 	t.recurrence = str(options.get("recurrence", "none"))
+	t.subtasks = _normalize_subtasks(options.get("subtasks", []))
 	tasks.append(t)
 	task_added.emit(t)
 	tasks_changed.emit()
 	save_tasks()
 	return t
+
+
+## Crée une copie indépendante d'une tâche (rappel passé reporté à +1 h).
+func duplicate_task(task: TaskData) -> TaskData:
+	var reminder := task.reminder_unix
+	if task.reminder_enabled and reminder <= Time.get_unix_time_from_system():
+		reminder = Time.get_unix_time_from_system() + 3600.0
+	return add_task(task.title, {
+		"icon": task.icon,
+		"icon_color": task.icon_color,
+		"icon_image": task.icon_image,
+		"category": task.category,
+		"description": task.description,
+		"reminder_enabled": task.reminder_enabled,
+		"reminder_unix": reminder,
+		"recurrence": task.recurrence,
+		"subtasks": _copy_subtasks(task.subtasks),
+	})
 
 
 ## Signale qu'une tâche existante a été modifiée.
@@ -116,7 +135,8 @@ func count_done() -> int:
 
 
 ## Renvoie les tâches filtrées et triées.
-## status: "all" | "active" | "done" ; category: "" = toutes ; sort: "due" | "created" | "title".
+## status: "all" | "active" | "done" ; category: "" = toutes ;
+## sort: "due" | "created" | "title" | "category".
 func query(status: String = "all", category: String = "", sort: String = "due") -> Array[TaskData]:
 	var out: Array[TaskData] = []
 	for t in tasks:
@@ -132,6 +152,11 @@ func query(status: String = "all", category: String = "", sort: String = "due") 
 			out.sort_custom(func(a: TaskData, b: TaskData) -> bool: return a.title.naturalnocasecmp_to(b.title) < 0)
 		"created":
 			out.sort_custom(func(a: TaskData, b: TaskData) -> bool: return a.created_unix > b.created_unix)
+		"category":
+			out.sort_custom(func(a: TaskData, b: TaskData) -> bool:
+				if a.category == b.category:
+					return _sort_by_due(a, b)
+				return a.category.naturalnocasecmp_to(b.category) < 0)
 		_:
 			out.sort_custom(_sort_by_due)
 	return out
@@ -162,6 +187,28 @@ func clear_all() -> void:
 	tasks.clear()
 	tasks_changed.emit()
 	save_tasks()
+
+
+static func _normalize_subtasks(value: Variant) -> Array:
+	var out: Array = []
+	if typeof(value) != TYPE_ARRAY:
+		return out
+	for entry in value:
+		if typeof(entry) == TYPE_DICTIONARY:
+			var title: String = str(entry.get("title", "")).strip_edges()
+			if not title.is_empty():
+				out.append({"title": title, "done": bool(entry.get("done", false))})
+	return out
+
+
+static func _copy_subtasks(value: Variant) -> Array:
+	var out: Array = []
+	if typeof(value) != TYPE_ARRAY:
+		return out
+	for entry in value:
+		if typeof(entry) == TYPE_DICTIONARY:
+			out.append({"title": str(entry.get("title", "")), "done": bool(entry.get("done", false))})
+	return out
 
 
 func save_tasks() -> void:
